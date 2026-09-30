@@ -5,19 +5,243 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.widget.Button;
 import android.widget.TextView;
+
 import java.util.ArrayList;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
- private static final int REQ_SPEECH=10, REQ_AUDIO=11;
- private TextView status, output; private TextToSpeech tts;
- @Override public void onCreate(Bundle b){super.onCreate(b);setContentView(R.layout.activity_main);status=findViewById(R.id.status);output=findViewById(R.id.output);Button listen=findViewById(R.id.listenButton);tts=new TextToSpeech(this,s->{if(s==TextToSpeech.SUCCESS)tts.setLanguage(Locale.getDefault());});listen.setOnClickListener(v->startListening());if(android.os.Build.VERSION.SDK_INT>=23&&checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQ_AUDIO);}
- private void startListening(){Intent i=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);i.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"hi-IN");i.putExtra(RecognizerIntent.EXTRA_PROMPT,"बोलिए...");try{status.setText("Listening...");startActivityForResult(i,REQ_SPEECH);}catch(Exception e){status.setText("Speech service unavailable");}}
- @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==REQ_SPEECH&&c==RESULT_OK&&d!=null){ArrayList<String>x=d.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);if(x!=null&&!x.isEmpty())handleCommand(x.get(0));}else status.setText("Ready");}
- private void handleCommand(String command){output.setText("You: "+command);String c=command.toLowerCase(Locale.ROOT);String reply;if(c.contains("hello")||c.contains("हेलो")||c.contains("नमस्ते"))reply="नमस्ते। JARVIS Lite तैयार है।";else if(c.contains("time")||c.contains("समय")){java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("hh:mm a",Locale.getDefault());reply="अभी समय "+f.format(new java.util.Date())+" है।";}else if(c.contains("battery")||c.contains("बैटरी")){android.os.BatteryManager bm=(android.os.BatteryManager)getSystemService(BATTERY_SERVICE);int p=bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY);reply="बैटरी लगभग "+p+" प्रतिशत है।";}else if(c.contains("youtube खोलो")||c.contains("open youtube")){try{startActivity(new Intent(Intent.ACTION_VIEW,android.net.Uri.parse("https://www.youtube.com/")));reply="YouTube खोल रहा हूँ।";}catch(Exception e){reply="YouTube नहीं खुल पाया।";}}else reply="मैंने सुना: "+command+". यह lightweight demo command है।";output.setText(reply);status.setText("Ready");if(tts!=null)tts.speak(reply,TextToSpeech.QUEUE_FLUSH,null,"jarvis");}
- @Override protected void onDestroy(){if(tts!=null){tts.stop();tts.shutdown();}super.onDestroy();}
+
+    private TextView status, output;
+    private TextToSpeech tts;
+    private SpeechRecognizer speechRecognizer;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        setContentView(R.layout.activity_main);
+
+        status = findViewById(R.id.status);
+        output = findViewById(R.id.output);
+
+        Button listenButton = findViewById(R.id.listenButton);
+
+        // Text to Speech
+        tts = new TextToSpeech(this, result -> {
+            if (result == TextToSpeech.SUCCESS) {
+                tts.setLanguage(new Locale("hi", "IN"));
+            }
+        });
+
+        // Speech Recognizer
+        if (SpeechRecognizer.isRecognitionAvailable(this)) {
+
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+                    status.setText("सुन रहा हूँ...");
+                }
+
+                @Override
+                public void onBeginningOfSpeech() {
+                    status.setText("बोलिए...");
+                }
+
+                @Override
+                public void onRmsChanged(float rmsdB) {}
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {}
+
+                @Override
+                public void onEndOfSpeech() {
+                    status.setText("समझ रहा हूँ...");
+                }
+
+                @Override
+                public void onError(int error) {
+                    status.setText("फिर से बोलिए");
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+
+                    ArrayList<String> matches =
+                            results.getStringArrayList(
+                                    SpeechRecognizer.RESULTS_RECOGNITION
+                            );
+
+                    if (matches != null && !matches.isEmpty()) {
+                        handleCommand(matches.get(0));
+                    } else {
+                        status.setText("कुछ समझ नहीं आया");
+                    }
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {}
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {}
+            });
+
+        } else {
+            status.setText("Speech service उपलब्ध नहीं है");
+        }
+
+        listenButton.setOnClickListener(v -> startListening());
+
+        // Microphone permission
+        if (android.os.Build.VERSION.SDK_INT >= 23 &&
+                checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+
+            requestPermissions(
+                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    11
+            );
+        }
+    }
+
+    private void startListening() {
+
+        if (speechRecognizer == null) {
+            speak("Speech service उपलब्ध नहीं है।");
+            return;
+        }
+
+        Intent intent = new Intent(
+                RecognizerIntent.ACTION_RECOGNIZE_SPEECH
+        );
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+        );
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE,
+                "hi-IN"
+        );
+
+        intent.putExtra(
+                RecognizerIntent.EXTRA_PARTIAL_RESULTS,
+                false
+        );
+
+        status.setText("सुन रहा हूँ...");
+
+        speechRecognizer.startListening(intent);
+    }
+
+    private void handleCommand(String command) {
+
+        output.setText("आप: " + command);
+
+        String c = command.toLowerCase(Locale.ROOT);
+
+        String reply;
+
+        if (c.contains("नमस्ते") ||
+                c.contains("हेलो") ||
+                c.contains("hello")) {
+
+            reply = "नमस्ते। JARVIS Lite तैयार है।";
+
+        } else if (c.contains("समय") ||
+                c.contains("time")) {
+
+            java.text.SimpleDateFormat format =
+                    new java.text.SimpleDateFormat(
+                            "hh:mm a",
+                            Locale.getDefault()
+                    );
+
+            reply = "अभी समय " +
+                    format.format(new java.util.Date()) +
+                    " है।";
+
+        } else if (c.contains("बैटरी") ||
+                c.contains("battery")) {
+
+            android.os.BatteryManager batteryManager =
+                    (android.os.BatteryManager)
+                            getSystemService(BATTERY_SERVICE);
+
+            int percent = batteryManager.getIntProperty(
+                    android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY
+            );
+
+            reply = "बैटरी लगभग " +
+                    percent +
+                    " प्रतिशत है।";
+
+        } else if (c.contains("youtube") ||
+                c.contains("यूट्यूब")) {
+
+            try {
+
+                Intent intent = new Intent(
+                        Intent.ACTION_VIEW,
+                        android.net.Uri.parse(
+                                "https://www.youtube.com/"
+                        )
+                );
+
+                startActivity(intent);
+
+                reply = "YouTube खोल रहा हूँ।";
+
+            } catch (Exception e) {
+
+                reply = "YouTube नहीं खुल पाया।";
+            }
+
+        } else {
+
+            reply = "मैंने सुना: " + command;
+        }
+
+        output.setText(reply);
+        status.setText("Ready");
+
+        speak(reply);
+    }
+
+    private void speak(String text) {
+
+        if (tts != null) {
+
+            tts.speak(
+                    text,
+                    TextToSpeech.QUEUE_FLUSH,
+                    null,
+                    "jarvis"
+            );
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
+
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+        }
+
+        super.onDestroy();
+    }
 }
