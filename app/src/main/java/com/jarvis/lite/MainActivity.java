@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -20,11 +21,13 @@ public class MainActivity extends Activity {
     private TextView status, output;
     private TextToSpeech tts;
     private SpeechRecognizer speechRecognizer;
+    private boolean continuousMode = false;
+
+    private final Handler handler = new Handler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_main);
 
         status = findViewById(R.id.status);
@@ -32,28 +35,28 @@ public class MainActivity extends Activity {
 
         Button listenButton = findViewById(R.id.listenButton);
 
-        // Text to Speech
         tts = new TextToSpeech(this, result -> {
             if (result == TextToSpeech.SUCCESS) {
                 tts.setLanguage(new Locale("hi", "IN"));
             }
         });
 
-        // Speech Recognizer
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
 
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            speechRecognizer =
+                    SpeechRecognizer.createSpeechRecognizer(this);
 
-            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+            speechRecognizer.setRecognitionListener(
+                    new RecognitionListener() {
 
                 @Override
                 public void onReadyForSpeech(Bundle params) {
-                    status.setText("सुन रहा हूँ...");
+                    status.setText("🎤 सुन रहा हूँ...");
                 }
 
                 @Override
                 public void onBeginningOfSpeech() {
-                    status.setText("बोलिए...");
+                    status.setText("🎤 बोलिए...");
                 }
 
                 @Override
@@ -64,12 +67,17 @@ public class MainActivity extends Activity {
 
                 @Override
                 public void onEndOfSpeech() {
-                    status.setText("समझ रहा हूँ...");
+                    status.setText("🧠 समझ रहा हूँ...");
                 }
 
                 @Override
                 public void onError(int error) {
-                    status.setText("फिर से बोलिए");
+
+                    if (continuousMode) {
+                        restartListening();
+                    } else {
+                        status.setText("Ready");
+                    }
                 }
 
                 @Override
@@ -81,9 +89,12 @@ public class MainActivity extends Activity {
                             );
 
                     if (matches != null && !matches.isEmpty()) {
+
                         handleCommand(matches.get(0));
-                    } else {
-                        status.setText("कुछ समझ नहीं आया");
+
+                    } else if (continuousMode) {
+
+                        restartListening();
                     }
                 }
 
@@ -91,22 +102,28 @@ public class MainActivity extends Activity {
                 public void onPartialResults(Bundle partialResults) {}
 
                 @Override
-                public void onEvent(int eventType, Bundle params) {}
+                public void onEvent(
+                        int eventType,
+                        Bundle params) {}
             });
-
-        } else {
-            status.setText("Speech service उपलब्ध नहीं है");
         }
 
-        listenButton.setOnClickListener(v -> startListening());
+        listenButton.setOnClickListener(v -> {
 
-        // Microphone permission
+            continuousMode = true;
+            startListening();
+
+        });
+
         if (android.os.Build.VERSION.SDK_INT >= 23 &&
-                checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                checkSelfPermission(
+                        Manifest.permission.RECORD_AUDIO)
                         != PackageManager.PERMISSION_GRANTED) {
 
             requestPermissions(
-                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    new String[]{
+                            Manifest.permission.RECORD_AUDIO
+                    },
                     11
             );
         }
@@ -138,9 +155,28 @@ public class MainActivity extends Activity {
                 false
         );
 
-        status.setText("सुन रहा हूँ...");
+        status.setText("🎤 सुन रहा हूँ...");
 
-        speechRecognizer.startListening(intent);
+        try {
+            speechRecognizer.startListening(intent);
+        } catch (Exception e) {
+            restartListening();
+        }
+    }
+
+    private void restartListening() {
+
+        if (!continuousMode) {
+            return;
+        }
+
+        handler.postDelayed(() -> {
+
+            if (continuousMode) {
+                startListening();
+            }
+
+        }, 1200);
     }
 
     private void handleCommand(String command) {
@@ -155,7 +191,7 @@ public class MainActivity extends Activity {
                 c.contains("हेलो") ||
                 c.contains("hello")) {
 
-            reply = "नमस्ते। JARVIS Lite तैयार है।";
+            reply = "नमस्ते। मैं सुन रहा हूँ।";
 
         } else if (c.contains("समय") ||
                 c.contains("time")) {
@@ -173,15 +209,17 @@ public class MainActivity extends Activity {
         } else if (c.contains("बैटरी") ||
                 c.contains("battery")) {
 
-            android.os.BatteryManager batteryManager =
+            android.os.BatteryManager bm =
                     (android.os.BatteryManager)
                             getSystemService(BATTERY_SERVICE);
 
-            int percent = batteryManager.getIntProperty(
-                    android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY
-            );
+            int percent =
+                    bm.getIntProperty(
+                            android.os.BatteryManager
+                                    .BATTERY_PROPERTY_CAPACITY
+                    );
 
-            reply = "बैटरी लगभग " +
+            reply = "बैटरी " +
                     percent +
                     " प्रतिशत है।";
 
@@ -212,7 +250,6 @@ public class MainActivity extends Activity {
         }
 
         output.setText(reply);
-        status.setText("Ready");
 
         speak(reply);
     }
@@ -227,11 +264,24 @@ public class MainActivity extends Activity {
                     null,
                     "jarvis"
             );
+
+            // जवाब खत्म होने के बाद फिर से सुनना
+            handler.postDelayed(() -> {
+
+                if (continuousMode) {
+                    startListening();
+                }
+
+            }, 1800);
         }
     }
 
     @Override
     protected void onDestroy() {
+
+        continuousMode = false;
+
+        handler.removeCallbacksAndMessages(null);
 
         if (speechRecognizer != null) {
             speechRecognizer.destroy();
