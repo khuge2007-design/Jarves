@@ -5,39 +5,48 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center">
+    android:gravity="center_horizontal"
+    android:padding="20dp"
+    android:background="#080B12">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="JARVIS Lite"
+        android:text="J A R V I S"
+        android:textColor="#00E5FF"
         android:textSize="30sp"
         android:textStyle="bold"
-        android:layout_marginBottom="30dp" />
+        android:letterSpacing="0.15"
+        android:layout_marginTop="35dp"/>
 
     <TextView
         android:id="@+id/status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Ready"
-        android:textSize="18sp"
-        android:layout_marginBottom="20dp" />
-
-    <Button
-        android:id="@+id/listenButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🎤 बोलिए"
-        android:textSize="18sp" />
+        android:text="● ONLINE"
+        android:textColor="#00FF88"
+        android:textSize="16sp"
+        android:layout_marginTop="10dp"/>
 
     <TextView
         android:id="@+id/output"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
         android:text="JARVIS तैयार है..."
-        android:textSize="18sp"
-        android:gravity="center" />
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:padding="20dp"/>
+
+    <Button
+        android:id="@+id/listenButton"
+        android:layout_width="220dp"
+        android:layout_height="60dp"
+        android:text="🎤  बोलिए"
+        android:textSize="19sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#007C91"
+        android:layout_marginBottom="35dp"/>
 
 </LinearLayout>
