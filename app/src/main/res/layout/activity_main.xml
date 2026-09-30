@@ -9,6 +9,16 @@
     android:padding="20dp"
     android:background="#080B12">
 
+    <ImageView
+        android:id="@+id/jarvisLogo"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:src="@drawable/jarvis_logo"
+        android:contentDescription="KHUSHWANT JARVIS Logo"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="10dp"
+        android:scaleType="centerInside"/>
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -16,8 +26,7 @@
         android:textColor="#00E5FF"
         android:textSize="30sp"
         android:textStyle="bold"
-        android:letterSpacing="0.15"
-        android:layout_marginTop="35dp"/>
+        android:letterSpacing="0.15"/>
 
     <TextView
         android:id="@+id/status"
@@ -26,7 +35,7 @@
         android:text="● ONLINE"
         android:textColor="#00FF88"
         android:textSize="16sp"
-        android:layout_marginTop="10dp"/>
+        android:layout_marginTop="8dp"/>
 
     <TextView
         android:id="@+id/output"
@@ -47,6 +56,6 @@
         android:textSize="19sp"
         android:textColor="#FFFFFF"
         android:backgroundTint="#007C91"
-        android:layout_marginBottom="35dp"/>
+        android:layout_marginBottom="25dp"/>
 
 </LinearLayout>
