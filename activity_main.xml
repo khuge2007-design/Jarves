@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="18dp" android:background="#101820">
+<TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="JARVIS LITE" android:textColor="#00AEEF" android:textSize="28sp" android:textStyle="bold" android:gravity="center" android:padding="12dp"/>
+<TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Ready" android:textColor="#FFFFFF" android:textSize="16sp" android:gravity="center" android:padding="8dp"/>
+<TextView android:id="@+id/output" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:text="Hello. I am JARVIS Lite." android:textColor="#D8F6FF" android:textSize="18sp" android:gravity="center" android:padding="20dp"/>
+<Button android:id="@+id/listenButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="TAP TO SPEAK" android:textSize="18sp" android:padding="14dp"/>
+</LinearLayout>
