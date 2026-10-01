@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -40,8 +41,7 @@ public class MainActivity extends Activity {
     private TextToSpeech tts;
     private SpeechRecognizer speechRecognizer;
 
-    private final android.os.Handler handler =
-            new android.os.Handler();
+    private final Handler handler = new Handler();
 
     private boolean continuousMode = false;
     private boolean isSpeaking = false;
@@ -51,7 +51,6 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
@@ -59,91 +58,66 @@ public class MainActivity extends Activity {
         status = findViewById(R.id.status);
         output = findViewById(R.id.output);
 
-        Button listenButton =
-                findViewById(R.id.listenButton);
+        Button listenButton = findViewById(R.id.listenButton);
 
-        // ==============================
-        // TEXT TO SPEECH
-        // ==============================
+        tts = new TextToSpeech(this, result -> {
 
-        tts = new TextToSpeech(
-                this,
-                result -> {
+            if (result == TextToSpeech.SUCCESS) {
 
-                    if (result ==
-                            TextToSpeech.SUCCESS) {
+                tts.setLanguage(new Locale("hi", "IN"));
+                tts.setSpeechRate(0.95f);
+                tts.setPitch(1.0f);
 
-                        tts.setLanguage(
-                                new Locale("hi", "IN")
-                        );
+                tts.setOnUtteranceProgressListener(
+                        new UtteranceProgressListener() {
 
-                        tts.setSpeechRate(0.95f);
-                        tts.setPitch(1.0f);
+                            @Override
+                            public void onStart(String id) {
+                                isSpeaking = true;
 
-                        tts.setOnUtteranceProgressListener(
-                                new UtteranceProgressListener() {
+                                runOnUiThread(() ->
+                                        status.setText("🔊 बोल रहा हूँ...")
+                                );
+                            }
 
-                                    @Override
-                                    public void onStart(
-                                            String utteranceId) {
+                            @Override
+                            public void onDone(String id) {
+                                isSpeaking = false;
 
-                                        isSpeaking = true;
+                                runOnUiThread(() ->
+                                        status.setText("● ONLINE")
+                                );
 
-                                        runOnUiThread(() ->
-                                                status.setText(
-                                                        "🔊 बोल रहा हूँ..."
-                                                )
-                                        );
-                                    }
-
-                                    @Override
-                                    public void onDone(
-                                            String utteranceId) {
-
-                                        isSpeaking = false;
-
-                                        runOnUiThread(() ->
-                                                status.setText(
-                                                        "● ONLINE"
-                                                )
-                                        );
-
-                                        if (continuousMode) {
-
-                                            handler.postDelayed(
-                                                    () -> startListening(),
-                                                    250
-                                            );
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onError(
-                                            String utteranceId) {
-
-                                        isSpeaking = false;
-
-                                        if (continuousMode) {
-
-                                            handler.postDelayed(
-                                                    () -> startListening(),
-                                                    400
-                                            );
-                                        }
-                                    }
+                                if (continuousMode && !aiBusy) {
+                                    handler.postDelayed(
+                                            () -> startListening(),
+                                            250
+                                    );
                                 }
-                        );
+                            }
 
-                        ttsReady = true;
-                        status.setText("● ONLINE");
-                    }
-                }
-        );
+                            @Override
+                            public void onError(String id) {
+                                isSpeaking = false;
+
+                                if (continuousMode && !aiBusy) {
+                                    handler.postDelayed(
+                                            () -> startListening(),
+                                            400
+                                    );
+                                }
+                            }
+                        }
+                );
+
+                ttsReady = true;
+                status.setText("● ONLINE");
+            }
+        });
 
         setupSpeechRecognizer();
 
         listenButton.setOnClickListener(v -> {
-
             continuousMode = true;
             startListening();
         });
@@ -162,66 +136,42 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ==============================
-    // SPEECH RECOGNIZER
-    // ==============================
-
     private void setupSpeechRecognizer() {
 
-        if (!SpeechRecognizer
-                .isRecognitionAvailable(this)) {
-
-            status.setText(
-                    "Speech service उपलब्ध नहीं है"
-            );
-
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            status.setText("Speech service उपलब्ध नहीं है");
             return;
         }
 
         speechRecognizer =
-                SpeechRecognizer
-                        .createSpeechRecognizer(this);
+                SpeechRecognizer.createSpeechRecognizer(this);
 
         speechRecognizer.setRecognitionListener(
                 new RecognitionListener() {
 
                     @Override
-                    public void onReadyForSpeech(
-                            Bundle params) {
-
+                    public void onReadyForSpeech(Bundle params) {
                         isListening = true;
-
-                        status.setText(
-                                "🎤 सुन रहा हूँ..."
-                        );
+                        status.setText("🎤 सुन रहा हूँ...");
                     }
 
                     @Override
                     public void onBeginningOfSpeech() {
-
-                        status.setText(
-                                "🎤 बोलिए..."
-                        );
+                        status.setText("🎤 बोलिए...");
                     }
 
                     @Override
-                    public void onRmsChanged(
-                            float rmsdB) {
+                    public void onRmsChanged(float rmsdB) {
                     }
 
                     @Override
-                    public void onBufferReceived(
-                            byte[] buffer) {
+                    public void onBufferReceived(byte[] buffer) {
                     }
 
                     @Override
                     public void onEndOfSpeech() {
-
                         isListening = false;
-
-                        status.setText(
-                                "🧠 समझ रहा हूँ..."
-                        );
+                        status.setText("🧠 समझ रहा हूँ...");
                     }
 
                     @Override
@@ -241,23 +191,19 @@ public class MainActivity extends Activity {
                     }
 
                     @Override
-                    public void onResults(
-                            Bundle results) {
+                    public void onResults(Bundle results) {
 
                         isListening = false;
 
                         ArrayList<String> matches =
                                 results.getStringArrayList(
-                                        SpeechRecognizer
-                                                .RESULTS_RECOGNITION
+                                        SpeechRecognizer.RESULTS_RECOGNITION
                                 );
 
                         if (matches != null &&
                                 !matches.isEmpty()) {
 
-                            handleCommand(
-                                    matches.get(0)
-                            );
+                            handleCommand(matches.get(0));
 
                         } else if (continuousMode) {
 
@@ -269,8 +215,7 @@ public class MainActivity extends Activity {
                     }
 
                     @Override
-                    public void onPartialResults(
-                            Bundle partialResults) {
+                    public void onPartialResults(Bundle partialResults) {
                     }
 
                     @Override
@@ -282,13 +227,11 @@ public class MainActivity extends Activity {
         );
     }
 
-    // ==============================
-    // START LISTENING
-    // ==============================
-
     private void startListening() {
 
-        if (!continuousMode) return;
+        if (!continuousMode) {
+            return;
+        }
 
         if (speechRecognizer == null) {
             setupSpeechRecognizer();
@@ -298,7 +241,6 @@ public class MainActivity extends Activity {
                 isListening ||
                 isSpeaking ||
                 aiBusy) {
-
             return;
         }
 
@@ -306,14 +248,12 @@ public class MainActivity extends Activity {
                 checkSelfPermission(
                         Manifest.permission.RECORD_AUDIO
                 ) != PackageManager.PERMISSION_GRANTED) {
-
             return;
         }
 
         Intent intent =
                 new Intent(
-                        RecognizerIntent
-                                .ACTION_RECOGNIZE_SPEECH
+                        RecognizerIntent.ACTION_RECOGNIZE_SPEECH
                 );
 
         intent.putExtra(
@@ -337,7 +277,6 @@ public class MainActivity extends Activity {
         );
 
         try {
-
             speechRecognizer.startListening(intent);
 
         } catch (Exception e) {
@@ -351,23 +290,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ==============================
-    // COMMAND HANDLER
-    // ==============================
+    private void handleCommand(String command) {
 
-    private void handleCommand(
-            String command) {
+        output.setText("आप: " + command);
 
-        output.setText(
-                "आप: " + command
-        );
-
-        String c =
-                command
-                        .toLowerCase(Locale.ROOT)
-                        .trim();
-
-        // GREETING
+        String c = command
+                .toLowerCase(Locale.ROOT)
+                .trim();
 
         if (contains(
                 c,
@@ -382,11 +311,8 @@ public class MainActivity extends Activity {
             speak(
                     "नमस्ते। मैं JARVIS हूँ। मैं आपकी सहायता के लिए तैयार हूँ।"
             );
-
             return;
         }
-
-        // NAME
 
         if (contains(
                 c,
@@ -397,14 +323,9 @@ public class MainActivity extends Activity {
                 "नाम क्या है"
         )) {
 
-            speak(
-                    "मेरा नाम JARVIS Lite है।"
-            );
-
+            speak("मेरा नाम JARVIS Lite है।");
             return;
         }
-
-        // TIME
 
         if (contains(
                 c,
@@ -422,16 +343,11 @@ public class MainActivity extends Activity {
 
             speak(
                     "अभी समय " +
-                            format.format(
-                                    new Date()
-                            ) +
+                            format.format(new Date()) +
                             " है।"
             );
-
             return;
         }
-
-        // DATE
 
         if (contains(
                 c,
@@ -449,16 +365,11 @@ public class MainActivity extends Activity {
 
             speak(
                     "आज " +
-                            format.format(
-                                    new Date()
-                            ) +
+                            format.format(new Date()) +
                             " है।"
             );
-
             return;
         }
-
-        // BATTERY
 
         if (contains(
                 c,
@@ -469,14 +380,11 @@ public class MainActivity extends Activity {
 
             BatteryManager bm =
                     (BatteryManager)
-                            getSystemService(
-                                    BATTERY_SERVICE
-                            );
+                            getSystemService(BATTERY_SERVICE);
 
             int percent =
                     bm.getIntProperty(
-                            BatteryManager
-                                    .BATTERY_PROPERTY_CAPACITY
+                            BatteryManager.BATTERY_PROPERTY_CAPACITY
                     );
 
             speak(
@@ -484,11 +392,8 @@ public class MainActivity extends Activity {
                             percent +
                             " प्रतिशत है।"
             );
-
             return;
         }
-
-        // YOUTUBE
 
         if (contains(
                 c,
@@ -496,18 +401,10 @@ public class MainActivity extends Activity {
                 "यूट्यूब"
         )) {
 
-            openUrl(
-                    "https://www.youtube.com/"
-            );
-
-            speak(
-                    "YouTube खोल रहा हूँ।"
-            );
-
+            openUrl("https://www.youtube.com/");
+            speak("YouTube खोल रहा हूँ।");
             return;
         }
-
-        // GOOGLE
 
         if (contains(
                 c,
@@ -515,18 +412,10 @@ public class MainActivity extends Activity {
                 "गूगल"
         )) {
 
-            openUrl(
-                    "https://www.google.com/"
-            );
-
-            speak(
-                    "Google खोल रहा हूँ।"
-            );
-
+            openUrl("https://www.google.com/");
+            speak("Google खोल रहा हूँ।");
             return;
         }
-
-        // CALCULATOR
 
         if (contains(
                 c,
@@ -539,14 +428,9 @@ public class MainActivity extends Activity {
                 "calculator"
         )) {
 
-            speak(
-                    calculate(command)
-            );
-
+            speak(calculate(command));
             return;
         }
-
-        // STOP
 
         if (contains(
                 c,
@@ -562,115 +446,73 @@ public class MainActivity extends Activity {
                 speechRecognizer.cancel();
             }
 
-            speak(
-                    "ठीक है। मैं सुनना बंद कर रहा हूँ।"
-            );
-
+            speak("ठीक है। मैं सुनना बंद कर रहा हूँ।");
             return;
         }
-
-        // =================================
-        // UNKNOWN QUESTION → GEMINI
-        // =================================
 
         askAI(command);
     }
 
-    // ==============================
-    // GEMINI AI REQUEST
-    // ==============================
-
-    private void askAI(
-            String question) {
+    private void askAI(String question) {
 
         aiBusy = true;
 
-        status.setText(
-                "🧠 JARVIS सोच रहा है..."
-        );
+        status.setText("🧠 JARVIS सोच रहा है...");
 
-        Thread thread =
-                new Thread(() -> {
+        Thread thread = new Thread(() -> {
 
-                    try {
+            try {
 
-                        String answer =
-                                sendQuestionToAI(
-                                        question
-                                );
+                String answer =
+                        sendQuestionToAI(question);
 
-                        runOnUiThread(() -> {
+                runOnUiThread(() -> {
 
-                            aiBusy = false;
+                    aiBusy = false;
 
-                            output.setText(
-                                    answer
-                            );
+                    output.setText(answer);
 
-                            speak(answer);
-                        });
-
-                    } catch (Exception e) {
-
-                        runOnUiThread(() -> {
-
-                            aiBusy = false;
-
-                            String message =
-                                    "AI से जवाब नहीं मिल पाया। इंटरनेट या backend connection जाँचें।";
-
-                            output.setText(
-                                    message
-                            );
-
-                            speak(message);
-                        });
-                    }
+                    speak(answer);
                 });
+
+            } catch (Exception e) {
+
+                runOnUiThread(() -> {
+
+                    aiBusy = false;
+
+                    String message =
+                            "AI से जवाब नहीं मिल पाया। इंटरनेट या backend connection जाँचें।";
+
+                    output.setText(message);
+
+                    speak(message);
+                });
+            }
+        });
 
         thread.start();
     }
 
-    // ==============================
-    // SEND QUESTION TO APPS SCRIPT
-    // ==============================
-
-    private String sendQuestionToAI(
-            String question)
+    private String sendQuestionToAI(String question)
             throws Exception {
 
-        JSONObject request =
-                new JSONObject();
+        JSONObject request = new JSONObject();
 
-        request.put(
-                "question",
-                question
-        );
+        request.put("question", question);
 
-        URL url =
-                new URL(
-                        AI_BACKEND_URL
-                );
+        URL url = new URL(AI_BACKEND_URL);
 
         HttpURLConnection connection =
-                (HttpURLConnection)
-                        url.openConnection();
+                (HttpURLConnection) url.openConnection();
 
         connection.setRequestMethod("POST");
-
         connection.setDoOutput(true);
 
-        connection.setConnectTimeout(
-                15000
-        );
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(30000);
 
-        connection.setReadTimeout(
-                30000
-        );
-
-        connection.setInstanceFollowRedirects(
-                true
-        );
+        connection.setInstanceFollowRedirects(true);
 
         connection.setRequestProperty(
                 "Content-Type",
@@ -679,9 +521,7 @@ public class MainActivity extends Activity {
 
         byte[] data =
                 request.toString()
-                        .getBytes(
-                                StandardCharsets.UTF_8
-                        );
+                        .getBytes(StandardCharsets.UTF_8);
 
         try (OutputStream os =
                      connection.getOutputStream()) {
@@ -698,33 +538,26 @@ public class MainActivity extends Activity {
         if (responseCode >= 200 &&
                 responseCode < 400) {
 
-            stream =
-                    connection.getInputStream();
+            stream = connection.getInputStream();
 
         } else {
 
-            stream =
-                    connection.getErrorStream();
+            stream = connection.getErrorStream();
         }
 
-        String response =
-                readStream(stream);
+        String response = readStream(stream);
 
         connection.disconnect();
 
         if (response == null ||
                 response.isEmpty()) {
 
-            throw new Exception(
-                    "Empty server response"
-            );
+            throw new Exception("Empty server response");
         }
 
-        JSONObject json =
-                new JSONObject(response);
+        JSONObject json = new JSONObject(response);
 
         if (json.has("error")) {
-
             throw new Exception(
                     json.getString("error")
             );
@@ -736,12 +569,7 @@ public class MainActivity extends Activity {
         );
     }
 
-    // ==============================
-    // READ SERVER RESPONSE
-    // ==============================
-
-    private String readStream(
-            InputStream stream)
+    private String readStream(InputStream stream)
             throws Exception {
 
         if (stream == null) {
@@ -761,9 +589,7 @@ public class MainActivity extends Activity {
 
         String line;
 
-        while ((line =
-                reader.readLine()) != null) {
-
+        while ((line = reader.readLine()) != null) {
             result.append(line);
         }
 
@@ -772,10 +598,6 @@ public class MainActivity extends Activity {
         return result.toString();
     }
 
-    // ==============================
-    // CHECK COMMAND
-    // ==============================
-
     private boolean contains(
             String text,
             String... words) {
@@ -783,16 +605,143 @@ public class MainActivity extends Activity {
         for (String word : words) {
 
             if (text.contains(
-                    word.toLowerCase(
-                            Locale.ROOT
-                    )
+                    word.toLowerCase(Locale.ROOT)
             )) {
-
                 return true;
             }
         }
 
         return false;
     }
-}
-    // ===========================
+
+    private String calculate(String command) {
+
+        String c =
+                command.toLowerCase(Locale.ROOT);
+
+        try {
+
+            if (c.contains("गुणा") ||
+                    c.contains("multiply")) {
+
+                String[] parts;
+
+                if (c.contains("गुणा")) {
+                    parts = c.split("गुणा");
+                } else {
+                    parts = c.split("multiply");
+                }
+
+                if (parts.length >= 2) {
+
+                    double a =
+                            Double.parseDouble(
+                                    parts[0].replaceAll(
+                                            "[^0-9.]",
+                                            ""
+                                    )
+                            );
+
+                    double b =
+                            Double.parseDouble(
+                                    parts[1].replaceAll(
+                                            "[^0-9.]",
+                                            ""
+                                    )
+                            );
+
+                    return "उत्तर " +
+                            (a * b) +
+                            " है।";
+                }
+            }
+
+            if (c.contains("जोड़") ||
+                    c.contains("जोड़ो")) {
+
+                String[] numbers =
+                        c.replaceAll(
+                                "[^0-9.]+",
+                                " "
+                        )
+                        .trim()
+                        .split(" ");
+
+                if (numbers.length >= 2) {
+
+                    double sum = 0;
+
+                    for (String n : numbers) {
+                        sum += Double.parseDouble(n);
+                    }
+
+                    return "उत्तर " +
+                            sum +
+                            " है।";
+                }
+            }
+
+        } catch (Exception ignored) {
+        }
+
+        return "मैं इस calculation को अभी समझ नहीं पाया।";
+    }
+
+    private void openUrl(String url) {
+
+        try {
+
+            Intent intent =
+                    new Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(url)
+                    );
+
+            startActivity(intent);
+
+        } catch (Exception e) {
+
+            speak("यह ऐप नहीं खुल पाया।");
+        }
+    }
+
+    private void speak(String text) {
+
+        if (tts == null || !ttsReady) {
+            return;
+        }
+
+        isSpeaking = true;
+
+        tts.speak(
+                text,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "jarvis_reply"
+        );
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        continuousMode = false;
+
+        handler.removeCallbacksAndMessages(null);
+
+        if (speechRecognizer != null) {
+
+            speechRecognizer.cancel();
+            speechRecognizer.destroy();
+            speechRecognizer = null;
+        }
+
+        if (tts != null) {
+
+            tts.stop();
+            tts.shutdown();
+            tts = null;
+        }
+
+        super.onDestroy();
+    }
+                            }
